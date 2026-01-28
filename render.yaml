@@ -1,0 +1,66 @@
+services:
+  - name: backend
+    type: web
+    env: python
+    plan: free
+    buildCommand: |
+      pip install --no-cache-dir -r requirements.txt
+      cd backend && python manage.py collectstatic --noinput
+    startCommand: cd backend && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --timeout 120
+    preDeployCommand: cd backend && python manage.py migrate --noinput
+    autoDeploy: true
+    disk:
+      name: media
+      mountPath: /app/backend/media
+      sizeGB: 1
+    envVars:
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        value: "localhost,127.0.0.1"
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://frontend.onrender.com"
+      - key: EXTRA_CORS_ORIGINS
+        value: ""
+      - key: DB_ENGINE
+        value: "postgresql"
+      - key: DB_NAME
+        fromDatabase:
+          name: filemanager-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: filemanager-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: filemanager-db
+          property: password
+      - key: DB_HOST
+        fromDatabase:
+          name: filemanager-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: filemanager-db
+          property: port
+
+  - name: frontend
+    type: static
+    rootDir: frontend
+    buildCommand: |
+      npm ci
+      BACKEND_URL=$BACKEND_URL REACT_APP_API_URL=$BACKEND_URL/api npm run build
+    staticPublishPath: build
+    envVars:
+      - key: BACKEND_URL
+        fromService:
+          name: backend
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+
+databases:
+  - name: filemanager-db
+    plan: free
