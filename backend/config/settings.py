@@ -25,8 +25,12 @@ if RENDER_EXTERNAL_URL:
     parsed_host = urlparse(RENDER_EXTERNAL_URL).hostname
     if parsed_host and parsed_host not in ALLOWED_HOSTS:
         ALLOWED_HOSTS.append(parsed_host)
-if '.onrender.com' not in ALLOWED_HOSTS:
-    ALLOWED_HOSTS.append('.onrender.com')
+KOYEB_PUBLIC_DOMAIN = os.environ.get('KOYEB_PUBLIC_DOMAIN')
+if KOYEB_PUBLIC_DOMAIN and KOYEB_PUBLIC_DOMAIN not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(KOYEB_PUBLIC_DOMAIN)
+for host_suffix in ('.onrender.com', '.koyeb.app'):
+    if host_suffix not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(host_suffix)
 
 # Application definition
 INSTALLED_APPS = [
@@ -74,27 +78,41 @@ TEMPLATES = [
 WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database
-DB_ENGINE = config('DB_ENGINE', default='sqlite').lower()
-DB_HOST = config('DB_HOST', default='')
-
-if DB_ENGINE == 'postgresql' or DB_HOST:
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    parsed_db_url = urlparse(DATABASE_URL)
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': config('DB_NAME', default='filemanager'),
-            'USER': config('DB_USER', default='filemanager'),
-            'PASSWORD': config('DB_PASSWORD', default='changeme'),
-            'HOST': DB_HOST or 'localhost',
-            'PORT': config('DB_PORT', default='5432'),
+            'NAME': parsed_db_url.path.lstrip('/'),
+            'USER': parsed_db_url.username or '',
+            'PASSWORD': parsed_db_url.password or '',
+            'HOST': parsed_db_url.hostname or '',
+            'PORT': parsed_db_url.port or '5432',
         }
     }
 else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+    DB_ENGINE = config('DB_ENGINE', default='sqlite').lower()
+    DB_HOST = config('DB_HOST', default='')
+
+    if DB_ENGINE == 'postgresql' or DB_HOST:
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': config('DB_NAME', default='filemanager'),
+                'USER': config('DB_USER', default='filemanager'),
+                'PASSWORD': config('DB_PASSWORD', default='changeme'),
+                'HOST': DB_HOST or 'localhost',
+                'PORT': config('DB_PORT', default='5432'),
+            }
         }
-    }
+    else:
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
